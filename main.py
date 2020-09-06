@@ -53,6 +53,11 @@ def TRANSFORM_clean_id_daysopen(data):
     data = data.replace(" Tagen", "")
     return data
 
+def TRANSFORM_id_stray_jobsopen(data):
+    data = data.text.replace("Seite 1 von ", "")
+    data = data.replace(" Jobs", "")
+    return data
+
 def login(browser):
     browser.get("https://www.linkedin.com/login")
     time.sleep(2)
@@ -260,6 +265,37 @@ li_firm_ROADMAP = {
      }
 }
 
+id_stray_firm_ROADMAP = {
+    "url": "https://de.indeed.com/Jobs?as_and=&as_phr=&as_any=&as_not=&as_ttl=&as_cmp=neugelb+studios&st=&radius=25&fromage=any&limit=10&sort=&psf=advsrch&from=advancedsearch",
+    "method": {
+        "type": selenium_method_B,
+        "browser": browser,
+        "sleep": 2
+    },
+    "structure": {
+        "//body": {
+            # ".//div[@id='searchCountPages']": {
+            #     "value": "id_software_jobsopen",
+            #     "transformer": TRANSFORM_id_stray_jobsopen
+            # },
+            # ".//*[@id='searchCountPages']": {
+            #     "value": "id_jobsopen",
+            #     "transformer": TRANSFORM_id_stray_jobsopen
+            # },
+            ".//div[@data-tn-component='organicJob']": {
+                ".//*[@data-tn-element='jobTitle']": {
+                    "value": "id_jobtitle"
+                },
+                # ".//a[@data-tn-element='jobTitle']": {
+                #     "value": "id_joblink",
+                #     "transformer": TRANSFORM_selenium_get_href
+                # },
+            }
+        }
+     }
+}
+
+
 def scrape():
     login(browser)
     inputSpreadsheet = getSheetData("Input")
@@ -344,7 +380,7 @@ def main():
     firms = []
     creds = ServiceAccountCredentials.from_json_keyfile_name('creds.json', scope) #refresh creds for lengthy run time
     client = gspread.authorize(creds) #refresh creds for lengthy run time
-    for firm in scraped:
+    for firm in scraped:    
         firms.append([firm["company"], firm["id_link"], firm["id_jobsopen"], firm["id_software_jobsopen"], firm["id_about"], firm["gd_link"], firm["gd_score"], firm["li_link"], firm["li_allstaff"], firm["li_jobsopen"]])
         for job in firm["jobs"]:
             jobs.append([job['company'], job['id_jobtitle'], job['id_joblink'], job["id_jobdesc"], job['id_daysopen'], job['id_location'], job["id_contact"], job["id_apply"], job["id_role"], job["id_stack_primary"], job["id_stack_secondary"], job["id_level"]])
@@ -352,8 +388,10 @@ def main():
     writeToSheet("Firms", firmHeader, firms)
     writeToSheet("Jobs", jobHeader, jobs)
 
-main()
-    
+# main()
+
+results = fly(id_job_ROADMAP)["results"]
+pprint(results)
 
 
 
