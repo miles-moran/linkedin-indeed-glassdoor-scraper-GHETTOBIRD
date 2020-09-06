@@ -121,12 +121,14 @@ def basic_method_C(routine):
         path = routine["structure"][field]["path"]
         route = script
         for p in path:
-            try:
+            if p in route.keys():
                 route = route[p]
-            except:
+            else:
                 print("{} not found".format(p))
+                route = ""
+                break
                 #needs to error more gracefully, fieldn eeds to be empty, but right now its a clusterfuck
-        if "transformer" in routine["structure"][field].keys():
+        if "transformer" in routine["structure"][field].keys() and route != "":
             data[field] = routine["structure"][field]["transformer"](route)
         else:
             data[field] = route
