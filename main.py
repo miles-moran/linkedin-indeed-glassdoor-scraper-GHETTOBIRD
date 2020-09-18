@@ -5,8 +5,9 @@ import time
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import re
-
-from ghettobird import basic_method_A, basic_method_B, basic_method_C, selenium_method_B, fly
+import sys
+from datetime import datetime
+from ghettobird import basic_method_A, basic_method_B, basic_method_C, master_method_selenium, fly
 
 scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name('creds.json', scope)
@@ -23,7 +24,13 @@ settings = {
     "id_stack": "",
     "id_role": "",
     "id_level": "",
+    "li_username": "",
+    "li_password": ""
 }
+
+firmsAlias = "Firms"
+jobsAlias = "Jobs"
+inputAlias = "Input"
 
 def handleSettings():
     data = getSheetData("Settings")
@@ -31,21 +38,26 @@ def handleSettings():
     settings["id_stack"] = data[1]["value"].lower().split(',')
     settings["id_role"] = data[2]["value"].lower().split(',')
     settings["id_level"] = data[3]["value"].lower().split(',')
+    settings["li_username"] = data[4]["value"]
+    settings["li_password"] = data[5]["value"]
 
 def TRANSFORM_firm_jobs(data):
+    for j in data:
+        relTime = j["formattedRelativeTime"] 
+        relTime = relTime.replace("vor ", "")
+        relTime = relTime.replace(" Tagen", "")
+        j["formattedRelativeTime"] = relTime
     return data
 
 def TRANSFORM_selenium_get_href(data):
     return data.get_attribute("href")
 
 def TRANSFORM_clean_li_allstaff(data):
-    data = data.text.replace("See all ", "")
-    data = data.replace(" employees on LinkedIn", "")
+    data = re.sub("[^0-9]", "", data.text)
     return data
 
 def TRANSFORM_clean_li_jobsopen(data):
-    data = data.text.replace("Templafy has ", "")
-    data = data.replace(" job openings - find the one for you.", "")
+    data = re.sub("[^0-9]", "", data.text)
     return data
 
 def TRANSFORM_clean_id_daysopen(data):
@@ -58,13 +70,16 @@ def TRANSFORM_id_stray_jobsopen(data):
     data = data.replace(" Jobs", "")
     return data
 
+def TRANSFORM_get_value(data):
+    return data.get_attribute("value")
+
 def login(browser):
     browser.get("https://www.linkedin.com/login")
     time.sleep(2)
     username = browser.find_element_by_xpath('//input[@id="username"]')
     password = browser.find_element_by_xpath('//input[@id="password"]')
-    username.send_keys("throwaway1993@live.com")
-    password.send_keys("fukthaPoleece!911")
+    username.send_keys(settings["li_username"])
+    password.send_keys(settings["li_password"])
     browser.find_element_by_xpath('//button[@type="submit"]').click()
 
 def getSheetData(sheet):
@@ -74,6 +89,7 @@ def getSheetData(sheet):
 
 def writeToSheet(sheet, header, data):
     if len(data) > 0:
+        client.login()
         s = client.open("Indeed v2").worksheet(sheet)
         book = client.open("Indeed v2")
         book.values_clear(sheet + "!A1:L10000")
@@ -83,6 +99,7 @@ def writeToSheet(sheet, header, data):
             for col_num, cell in enumerate(row):
                 cells.append(gspread.Cell(row_num + 1, col_num + 1, data[row_num][col_num]))
         s.update_cells(cells)
+
 def arrayToCommaSeperated(arr):
     new = ""
     for a in arr:
@@ -181,7 +198,7 @@ id_firm_general_ROADMAP = {
             "path": ["aboutStory", "aboutDescription", "moreText"]
         },
         "id_jobsopen": {
-            "path": ["topLocationsAndJobsStory", "totalJobCount"]
+            "path": ["topLocationsAndJobsStory", "totalJobCount"],
         }
     }
 }
@@ -205,28 +222,26 @@ id_jobs_ROADMAP = {
 }
 
 id_job_ROADMAP = {
-    "url": "https://de.indeed.com/cmp/Hellofresh/jobs?jk=22c38db700e6b578",
+    "url": "https://de.indeed.com/cmp/Getyourguide/jobs?jk=08c567f4078850a7&start=0&clearPrefilter=1",
     "method": {
-        "type": selenium_method_B,
+        "type": master_method_selenium,
         "browser": browser,
         "sleep": 2
     },
-    "structure": {
-        "//div[@class='cmp-JobDetail']": {
-            ".//div[@class='cmp-JobDetailTitle']": {
-                "value": "jobtitle",
-            },
-            ".//div[@class='cmp-JobDetailDescription-description']": {
-                "value": "jobdesc",
-            },
-            ".//a[@data-tn-element='NonIAApplyButton']": {
-                "value": "@id_non_apply",
-                "transformer": TRANSFORM_selenium_get_href
-            },
-            ".//a[@data-tn-element='IAApplyButton']": {
-                "value": "@id_apply",
-                "transformer": TRANSFORM_selenium_get_href
-            }
+    "flightpath": {
+        "jobtitle": {
+            "path": ".//div[@class='cmp-JobDetailTitle']"
+        },
+        "jobdesc": {
+            "path": ".//div[@class='cmp-JobDetailDescription-description']"
+        },
+        "@id_non_apply": {
+            "path": ".//a[@data-tn-element='NonIAApplyButton']",
+            "transformer":TRANSFORM_selenium_get_href
+        },
+        "@id_apply": {
+            "path": ".//a[@data-tn-element='IAApplyButton']",
+            "transformer": TRANSFORM_selenium_get_href
         }
      }
 }
@@ -247,58 +262,78 @@ gd_firm_ROADMAP = {
 li_firm_ROADMAP = {
     "url": "https://www.linkedin.com/company/adjustcom/jobs/",
     "method": {
-        "type": selenium_method_B,
+        "type": master_method_selenium,
         "browser": browser,
-        "sleep": 2
+        "sleep": 3
     },
-    "structure": {
-        "//body": {
-            ".//h4": {
-                "value": "li_jobsopen",
-                "transformer": TRANSFORM_clean_li_jobsopen
-            },
-            ".//span[@class='v-align-middle']": {
-                "value": "li_allstaff",
-                "transformer": TRANSFORM_clean_li_allstaff
-            },
+    "flightpath": {
+        "li_jobsopen": {
+            "path": "//h4",
+            "transformer": TRANSFORM_clean_li_jobsopen
+        },
+        "li_allstaff": {
+            "path": "//span[@class='v-align-middle']",
+            "transformer": TRANSFORM_clean_li_allstaff
         }
      }
 }
 
 id_stray_firm_ROADMAP = {
-    "url": "https://de.indeed.com/Jobs?as_and=&as_phr=&as_any=&as_not=&as_ttl=&as_cmp=neugelb+studios&st=&radius=25&fromage=any&limit=10&sort=&psf=advsrch&from=advancedsearch",
+    "url": "https://de.indeed.com/Jobs?q=Douglas+Parf%C3%BCmerie&from=sug",
     "method": {
-        "type": selenium_method_B,
-        "browser": browser,
-        "sleep": 2
+        "type": master_method_selenium,
+        "browser": browser
     },
-    "structure": {
-        "//body": {
-            # ".//div[@id='searchCountPages']": {
-            #     "value": "id_software_jobsopen",
-            #     "transformer": TRANSFORM_id_stray_jobsopen
-            # },
-            # ".//*[@id='searchCountPages']": {
-            #     "value": "id_jobsopen",
-            #     "transformer": TRANSFORM_id_stray_jobsopen
-            # },
-            ".//div[@data-tn-component='organicJob']": {
-                ".//*[@data-tn-element='jobTitle']": {
-                    "value": "id_jobtitle"
-                },
-                # ".//a[@data-tn-element='jobTitle']": {
-                #     "value": "id_joblink",
-                #     "transformer": TRANSFORM_selenium_get_href
-                # },
-            }
-        }
-     }
+    "flightpath": {
+         "id_software_jobsopen": {
+             "path": "//div[@id='searchCountPages']",
+             "transformer": TRANSFORM_id_stray_jobsopen
+         },
+         "id_jobsopen": {
+             "path": "//div[@id='searchCountPages']",
+             "transformer": TRANSFORM_id_stray_jobsopen
+         },
+        "jobs": [{
+             "path": "//div[@data-tn-component='organicJob']",
+             "title": {
+                "path": ".//a[@data-tn-element='jobTitle']",
+             },
+            "id_joblink": {
+                "path": ".//a[@data-tn-element='jobTitle']",
+                "transformer": TRANSFORM_selenium_get_href
+             },
+             "id_daysopen": {
+                "path": ".//span[@class='date ']",
+                "transformer": TRANSFORM_clean_id_daysopen
+             },
+            "id_location": {
+                "path": ".//span[@class='location accessible-contrast-color-location']",
+             }
+         }]
+    }
+}
+
+id_stray_firm_job_ROADMAP = {
+    "url": "https://de.indeed.com/Jobs?as_and&as_phr&as_any&as_not&as_ttl&as_cmp=neugelb%20studios&st&radius=25&fromage=any&limit=10&sort&psf=advsrch&from=advancedsearch&vjk=d0d7ff5206498a49",
+    "method": {
+        "browser": browser,
+        "type": master_method_selenium,
+    },
+    "flightpath": {
+         "description": {
+             "path": "//div[@id='jobDescriptionText']",
+         },
+         "apply_button": {
+             "path": "//a[text()='Weiter zur Bewerbung']",
+             'transformer': TRANSFORM_selenium_get_href
+         }
+    }
 }
 
 
 def scrape():
     login(browser)
-    inputSpreadsheet = getSheetData("Input")
+    inputSpreadsheet = getSheetData(inputAlias)
     firms = []
     for firmInput in inputSpreadsheet:
         f = {
@@ -317,8 +352,37 @@ def scrape():
         if f["id_link"] != "":
             #general firm method
             if "https://de.indeed.com/Jobs?" in f["id_link"]:
-                print("stray")
-                break
+                id_stray_firm_ROADMAP["url"] = f["id_link"]
+                results = fly(id_stray_firm_ROADMAP)["results"]
+                f["id_jobsopen"] = results["id_jobsopen"]
+                f["id_software_jobsopen"] = results["id_software_jobsopen"]
+                rawJobs = results["jobs"]
+                for job in rawJobs:
+                    j = {
+                        "company": f["company"],
+                        "id_jobtitle": job["title"],
+                        "id_joblink": job["id_joblink"],
+                        "id_jobdesc": "",
+                        "id_daysopen": job['id_daysopen'],
+                        "id_location": job["id_location"],
+                        "id_contact": "",
+                        "id_apply":	"",
+                        "id_role": "",
+                        "id_stack_primary": "",
+                        "id_stack_secondary": "",
+                        "id_level": ""
+                    }
+                    id_stray_firm_job_ROADMAP["url"] = j["id_joblink"]
+                    results = fly(id_stray_firm_job_ROADMAP)["results"]
+                    j["id_apply"] = results["apply_button"]
+                    j['id_jobdesc'] = results["description"]
+                    analysis = analyzeText(job["title"], results["description"])
+                    j["id_contact"] = analysis["email"]
+                    j["id_stack_primary"] = analysis["id_stack_primary"]
+                    j["id_stack_secondary"] = analysis["id_stack_secondary"]
+                    j["id_role"] = analysis["id_role"]
+                    j["id_level"] = analysis["id_level"]
+                    f["jobs"].append(j)
             else:
                 id_firm_general_ROADMAP["url"] = f["id_link"]
                 results = fly(id_firm_general_ROADMAP)["results"]
@@ -328,12 +392,12 @@ def scrape():
                 id_jobs_ROADMAP["url"] = f["id_link"] + "/jobs" + "?q=" + settings["indeed_query"]
                 results = fly(id_jobs_ROADMAP)["results"]
                 f["id_software_jobsopen"] = results["id_software_jobsopen"]
-                rawJobs = results = fly(id_jobs_ROADMAP)["results"]["@id_jobs"]
+                rawJobs = results["@id_jobs"]
                 for job in rawJobs:
                     j = {
                         "company": f["company"],
                         "id_jobtitle": job["title"],
-                        "id_joblink": f["id_link"] + "/jobs" + job["url"],
+                        "id_joblink": f["id_link"] + "/jobs?jk=" + job["jobKey"],
                         "id_jobdesc": "",
                         "id_daysopen": job['formattedRelativeTime'],
                         "id_location": job["location"],
@@ -346,13 +410,12 @@ def scrape():
                     }
                     #id job method
                     id_job_ROADMAP["url"] = f["id_link"] + "/jobs?jk=" + job["jobKey"]
-                    results = fly(id_job_ROADMAP)["results"][0] #COULD BE PROBLAMETIC SOON
-                    if "@id_apply" in results.keys():
+                    results = fly(id_job_ROADMAP)["results"]
+                    if results["@id_apply"] != "":
                         j["id_apply"] = results["@id_apply"]
-                    if "@id_non_apply" in results.keys():
+                    else:
                         j["id_apply"] = results["@id_non_apply"]
                     j["id_jobdesc"] = results["jobdesc"]
-
                     analysis = analyzeText(j["id_jobtitle"], j["id_jobdesc"])
                     j["id_contact"] = analysis["email"]
                     j["id_stack_primary"] = analysis["id_stack_primary"]
@@ -366,32 +429,41 @@ def scrape():
             results = fly(gd_firm_ROADMAP)["results"]
             f["gd_score"] = results["gd_score"]
         if f["li_link"] != "":
-            li_firm_ROADMAP["url"] = f["li_link"] + "jobs"
-            results = fly(li_firm_ROADMAP)["results"][0]
+            li_firm_ROADMAP["url"] = f["li_link"] + "/jobs"
+            results = fly(li_firm_ROADMAP)["results"]
             f["li_allstaff"] = results["li_allstaff"]
             f["li_jobsopen"] = results["li_jobsopen"]
         firms.append(f)
     return firms
+
+def logExecution():
+    now = datetime.now() 
+    time = now.strftime("%H:%M:%S, %m/%d/%Y")
+    s = client.open("Indeed v2").worksheet(inputAlias)
+    s.update_cell(1, 7, time)
 
 def main():
     handleSettings()        
     scraped = scrape()
     jobs = []
     firms = []
-    creds = ServiceAccountCredentials.from_json_keyfile_name('creds.json', scope) #refresh creds for lengthy run time
-    client = gspread.authorize(creds) #refresh creds for lengthy run time
+
     for firm in scraped:    
-        firms.append([firm["company"], firm["id_link"], firm["id_jobsopen"], firm["id_software_jobsopen"], firm["id_about"], firm["gd_link"], firm["gd_score"], firm["li_link"], firm["li_allstaff"], firm["li_jobsopen"]])
+        f = [firm["company"], firm["id_link"], firm["id_jobsopen"], firm["id_software_jobsopen"], firm["id_about"], firm["gd_link"], firm["gd_score"], firm["li_link"], firm["li_allstaff"], firm["li_jobsopen"]]
+        firms.append(f)
         for job in firm["jobs"]:
-            jobs.append([job['company'], job['id_jobtitle'], job['id_joblink'], job["id_jobdesc"], job['id_daysopen'], job['id_location'], job["id_contact"], job["id_apply"], job["id_role"], job["id_stack_primary"], job["id_stack_secondary"], job["id_level"]])
+            j = [job['company'], job['id_jobtitle'], job['id_joblink'], job["id_jobdesc"], job['id_daysopen'], job['id_location'], job["id_contact"], job["id_apply"], job["id_role"], job["id_stack_primary"], job["id_stack_secondary"], job["id_level"]]
+            jobs.append(j)
 
-    writeToSheet("Firms", firmHeader, firms)
-    writeToSheet("Jobs", jobHeader, jobs)
+    writeToSheet(firmsAlias, firmHeader, firms)
+    writeToSheet(jobsAlias, jobHeader, jobs)
+    logExecution()
 
-# main()
-
-results = fly(id_job_ROADMAP)["results"]
-pprint(results)
-
-
-
+args = sys.argv
+print(args)
+if len(args) > 1:
+    if args[1] == "test":
+        firmsAlias = "Test Firms"
+        jobsAlias = "Test Jobs"
+        inputAlias = "Test Input"
+main()

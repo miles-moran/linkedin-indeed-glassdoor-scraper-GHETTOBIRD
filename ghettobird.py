@@ -3,7 +3,8 @@ import json
 import time
 from lxml import html
 import requests
-
+import copy
+import csv
 def getTree(URL):
     headers = {
         'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36',
@@ -23,6 +24,15 @@ def fly(routine):
     routine["log"] = []
     routine["results"] = routine["method"]["type"](routine)
     return routine
+
+def writeRow(filename, row):
+     with open('{}.csv'.format(filename),'a', encoding='utf-8') as j:
+        writer = csv.writer(j, lineterminator = '\n')
+        try:
+            writer.writerow(row)
+        except Exception as e:
+            print(e)
+            print("failure to write to CSV")
 
 #scrapes elements based off of field selectors
 def basic_method_A(routine):
@@ -110,13 +120,13 @@ def basic_method_C(routine):
     else: 
         script = tree.xpath(routine["method"]["script"])[0].text
     try:
-        
-        script = script.encode('utf-8')
-        script = json.loads(script, strict=False)
+        raw = script.encode('utf-8')
+        script = json.loads(raw, strict=False)
     except Exception as e:
+        raw = script.encode('ascii', 'ignore').decode('unicode_escape')
+        script = json.loads(raw, strict=False)
         print("error while encoding json")
         print(e)
-        return None
     for field in keys:
         path = routine["structure"][field]["path"]
         route = script
@@ -134,42 +144,69 @@ def basic_method_C(routine):
             data[field] = route
     return data 
 
-
-def selenium_method_B(routine):
-    def explore(data, tree, roadmap, depth, root):
-        items = roadmap.items()
-        for branch in tree:
-            if depth == 1:
-                root = branch
-                data[root] = {}
-            fields = {}
-            for item in items:
-                key = item[0]
-                obj = item[1]
-                if key == "value":
-                    return True
-                leaf = branch.find_elements_by_xpath(key)
-                valueFound = explore(data, leaf, obj, depth + 1, root)
-                if valueFound == True:
+def master_method_selenium(flight):
+    browser = flight["method"]["browser"]
+    def explore(tree, flightpath, log):
+        flightpathCopy = copy.deepcopy(flightpath)
+        keys = flightpathCopy.keys()
+        for key in keys:
+            obj = flightpathCopy[key]
+            typeOfObj = type(obj)
+            if typeOfObj == dict:
+                innerKeys = obj.keys()
+                if "path" in innerKeys:
+                    element = None
                     try:
-                        element = branch.find_elements_by_xpath(key)
-                    except:
-                        print("element not found")
+                        element = tree.find_element_by_xpath(obj["path"])
+                    except Exception as e: 
+                        time.sleep(5)
+                        try:
+                            element = tree.find_element_by_xpath(obj["path"])
+                        except:
+                            log.append("{} | {} element not found.".format(e, key))
+                            flightpathCopy[key] = ""
+                            continue
+                    try:
+                        if "transformer" in innerKeys:
+                            flightpathCopy[key] = obj["transformer"](element)
+                        else:
+                            flightpathCopy[key] = element.text
+                    except Exception as e: 
+                        log.append("{} | {} transformer function failed.".format(e, key))
+                        flightpathCopy[key] = ""
+                else:
+                    flightpathCopy[key] = explore(tree, obj, log)
+            if typeOfObj == list:
+                profile = {}
+                try:
+                    profile = obj[0]
+                except Exception as e: 
+                    log.append("{} | {} list is empty.".format(e, key))
+                    flightpathCopy[key] = []
+                    continue
+                path = "//body"
+                branch = None
+                if "path" in profile.keys():
+                    path = profile.pop("path")
+                branches = tree.find_elements_by_xpath(path)
+                if len(branches) == 0:
+                    time.sleep(5)
+                    branches = tree.find_elements_by_xpath(path)
+                    if len(branches) == 0:
+                        log.append("{} container element for list not found".format(key))
+                        flightpathCopy[key] = []
                         continue
-                    if "transformer" in obj.keys():
-                        value = obj["transformer"](element[0])
-                    else:
-                        value = element[0].text
-                    fields[obj["value"]] = value
-                    if depth == 1:
-                        data[root] = {**data[root], **fields}
-                    if depth > 1:
-                        data[root] = {**data[root], **fields}
-        return data
-    browser = routine["method"]["browser"]
-    browser.get(routine["url"])
-    time.sleep(routine["method"]["sleep"])  
-    tree = browser.find_element_by_xpath("//body")
-    roadmap = routine["structure"]
-    data = explore({}, [tree], roadmap, 0, None)
-    return list(data.values())
+                leaves = []
+                for branch in branches:
+                    leaves.append(explore(branch, profile, log))
+                flightpathCopy[key] = leaves
+        return flightpathCopy
+
+    browser.get(flight["url"])
+    time.sleep(3)
+    captchaExists = len(browser.find_elements_by_xpath("//*[contains(text(),'do a quick security check')]")) > 0
+    if captchaExists:
+        input("--Captcha Detected--") 
+    tree = browser.find_element_by_xpath("//html")
+    results = explore(tree, flight["flightpath"], flight["log"])
+    return results
