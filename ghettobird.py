@@ -117,8 +117,11 @@ def basic_method_C(routine):
                 raw = raw.replace(tail, "")
                 script = raw
                 break
-    else: 
-        script = tree.xpath(routine["method"]["script"])[0].text
+    else:
+        try:
+            script = tree.xpath(routine["method"]["script"])[0].text
+        except:
+            return None
     try:
         raw = script.encode('utf-8')
         script = json.loads(raw, strict=False)
@@ -205,7 +208,8 @@ def master_method_selenium(flight):
     browser.get(flight["url"])
     time.sleep(3)
     captchaExists = len(browser.find_elements_by_xpath("//*[contains(text(),'do a quick security check')]")) > 0
-    if captchaExists:
+    loginExists = len(browser.find_elements_by_xpath("//*[contains(text(),'Sign In')]")) > 0
+    if captchaExists or loginExists:
         input("--Captcha Detected--") 
     tree = browser.find_element_by_xpath("//html")
     results = explore(tree, flight["flightpath"], flight["log"])

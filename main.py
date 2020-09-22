@@ -57,7 +57,8 @@ def TRANSFORM_clean_li_allstaff(data):
     return data
 
 def TRANSFORM_clean_li_jobsopen(data):
-    data = re.sub("[^0-9]", "", data.text)
+    data = data.text.split(" has ")[1]
+    data = re.sub("[^0-9]", "", data)
     return data
 
 def TRANSFORM_clean_id_daysopen(data):
@@ -336,104 +337,107 @@ def scrape():
     inputSpreadsheet = getSheetData(inputAlias)
     firms = []
     for firmInput in inputSpreadsheet:
-        f = {
-            "company": firmInput["company"],
-            "id_link": firmInput["id_link"],
-            "id_jobsopen": "",
-            "id_software_jobsopen": "",
-            "id_about": "",
-            "gd_link": firmInput["gd_link"], 
-            "gd_score": "",
-            "li_link": firmInput["li_link"],
-            "li_allstaff": "",
-            "li_jobsopen": "",
-            "jobs": []
-        }
-        if f["id_link"] != "":
-            #general firm method
-            if "https://de.indeed.com/Jobs?" in f["id_link"]:
-                id_stray_firm_ROADMAP["url"] = f["id_link"]
-                results = fly(id_stray_firm_ROADMAP)["results"]
-                f["id_jobsopen"] = results["id_jobsopen"]
-                f["id_software_jobsopen"] = results["id_software_jobsopen"]
-                rawJobs = results["jobs"]
-                for job in rawJobs:
-                    j = {
-                        "company": f["company"],
-                        "id_jobtitle": job["title"],
-                        "id_joblink": job["id_joblink"],
-                        "id_jobdesc": "",
-                        "id_daysopen": job['id_daysopen'],
-                        "id_location": job["id_location"],
-                        "id_contact": "",
-                        "id_apply":	"",
-                        "id_role": "",
-                        "id_stack_primary": "",
-                        "id_stack_secondary": "",
-                        "id_level": ""
-                    }
-                    id_stray_firm_job_ROADMAP["url"] = j["id_joblink"]
-                    results = fly(id_stray_firm_job_ROADMAP)["results"]
-                    j["id_apply"] = results["apply_button"]
-                    j['id_jobdesc'] = results["description"]
-                    analysis = analyzeText(job["title"], results["description"])
-                    j["id_contact"] = analysis["email"]
-                    j["id_stack_primary"] = analysis["id_stack_primary"]
-                    j["id_stack_secondary"] = analysis["id_stack_secondary"]
-                    j["id_role"] = analysis["id_role"]
-                    j["id_level"] = analysis["id_level"]
-                    f["jobs"].append(j)
-            else:
-                id_firm_general_ROADMAP["url"] = f["id_link"]
-                results = fly(id_firm_general_ROADMAP)["results"]
-                f["id_jobsopen"] = results["id_jobsopen"]
-                f["id_about"] = results["@id_lessText"] + " " + results["@id_moreText"]
-                #firm jobs method
-                id_jobs_ROADMAP["url"] = f["id_link"] + "/jobs" + "?q=" + settings["indeed_query"]
-                results = fly(id_jobs_ROADMAP)["results"]
-                f["id_software_jobsopen"] = results["id_software_jobsopen"]
-                rawJobs = results["@id_jobs"]
-                for job in rawJobs:
-                    j = {
-                        "company": f["company"],
-                        "id_jobtitle": job["title"],
-                        "id_joblink": f["id_link"] + "/jobs?jk=" + job["jobKey"],
-                        "id_jobdesc": "",
-                        "id_daysopen": job['formattedRelativeTime'],
-                        "id_location": job["location"],
-                        "id_contact": "",
-                        "id_apply":	"",
-                        "id_role": "",
-                        "id_stack_primary": "",
-                        "id_stack_secondary": "",
-                        "id_level": ""
-                    }
-                    #id job method
-                    id_job_ROADMAP["url"] = f["id_link"] + "/jobs?jk=" + job["jobKey"]
-                    results = fly(id_job_ROADMAP)["results"]
-                    if results["@id_apply"] != "":
-                        j["id_apply"] = results["@id_apply"]
-                    else:
-                        j["id_apply"] = results["@id_non_apply"]
-                    j["id_jobdesc"] = results["jobdesc"]
-                    analysis = analyzeText(j["id_jobtitle"], j["id_jobdesc"])
-                    j["id_contact"] = analysis["email"]
-                    j["id_stack_primary"] = analysis["id_stack_primary"]
-                    j["id_stack_secondary"] = analysis["id_stack_secondary"]
-                    j["id_role"] = analysis["id_role"]
-                    j["id_level"] = analysis["id_level"]
-                    f["jobs"].append(j)
-            
-        if f["gd_link"] != "":
-            gd_firm_ROADMAP["url"] = f["gd_link"]
-            results = fly(gd_firm_ROADMAP)["results"]
-            f["gd_score"] = results["gd_score"]
-        if f["li_link"] != "":
-            li_firm_ROADMAP["url"] = f["li_link"] + "/jobs"
-            results = fly(li_firm_ROADMAP)["results"]
-            f["li_allstaff"] = results["li_allstaff"]
-            f["li_jobsopen"] = results["li_jobsopen"]
-        firms.append(f)
+        try:
+            f = {
+                "company": firmInput["company"],
+                "id_link": firmInput["id_link"],
+                "id_jobsopen": "",
+                "id_software_jobsopen": "",
+                "id_about": "",
+                "gd_link": firmInput["gd_link"], 
+                "gd_score": "",
+                "li_link": firmInput["li_link"],
+                "li_allstaff": "",
+                "li_jobsopen": "",
+                "jobs": []
+            }
+            if f["id_link"] != "":
+                #general firm method
+                if "https://de.indeed.com/Jobs?" in f["id_link"]:
+                    id_stray_firm_ROADMAP["url"] = f["id_link"]
+                    results = fly(id_stray_firm_ROADMAP)["results"]
+                    f["id_jobsopen"] = results["id_jobsopen"]
+                    f["id_software_jobsopen"] = results["id_software_jobsopen"]
+                    rawJobs = results["jobs"]
+                    for job in rawJobs:
+                        j = {
+                            "company": f["company"],
+                            "id_jobtitle": job["title"],
+                            "id_joblink": job["id_joblink"],
+                            "id_jobdesc": "",
+                            "id_daysopen": job['id_daysopen'],
+                            "id_location": job["id_location"],
+                            "id_contact": "",
+                            "id_apply":	"",
+                            "id_role": "",
+                            "id_stack_primary": "",
+                            "id_stack_secondary": "",
+                            "id_level": ""
+                        }
+                        id_stray_firm_job_ROADMAP["url"] = j["id_joblink"]
+                        results = fly(id_stray_firm_job_ROADMAP)["results"]
+                        j["id_apply"] = results["apply_button"]
+                        j['id_jobdesc'] = results["description"]
+                        analysis = analyzeText(job["title"], results["description"])
+                        j["id_contact"] = analysis["email"]
+                        j["id_stack_primary"] = analysis["id_stack_primary"]
+                        j["id_stack_secondary"] = analysis["id_stack_secondary"]
+                        j["id_role"] = analysis["id_role"]
+                        j["id_level"] = analysis["id_level"]
+                        f["jobs"].append(j)
+                else:
+                    id_firm_general_ROADMAP["url"] = f["id_link"]
+                    results = fly(id_firm_general_ROADMAP)["results"]
+                    f["id_jobsopen"] = results["id_jobsopen"]
+                    f["id_about"] = results["@id_lessText"] + " " + results["@id_moreText"]
+                    #firm jobs method
+                    id_jobs_ROADMAP["url"] = f["id_link"] + "/jobs" + "?q=" + settings["indeed_query"]
+                    results = fly(id_jobs_ROADMAP)["results"]
+                    f["id_software_jobsopen"] = results["id_software_jobsopen"]
+                    rawJobs = results["@id_jobs"]
+                    for job in rawJobs:
+                        j = {
+                            "company": f["company"],
+                            "id_jobtitle": job["title"],
+                            "id_joblink": f["id_link"] + "/jobs?jk=" + job["jobKey"],
+                            "id_jobdesc": "",
+                            "id_daysopen": job['formattedRelativeTime'],
+                            "id_location": job["location"],
+                            "id_contact": "",
+                            "id_apply":	"",
+                            "id_role": "",
+                            "id_stack_primary": "",
+                            "id_stack_secondary": "",
+                            "id_level": ""
+                        }
+                        #id job method
+                        id_job_ROADMAP["url"] = f["id_link"] + "/jobs?jk=" + job["jobKey"]
+                        results = fly(id_job_ROADMAP)["results"]
+                        if results["@id_apply"] != "":
+                            j["id_apply"] = results["@id_apply"]
+                        else:
+                            j["id_apply"] = results["@id_non_apply"]
+                        j["id_jobdesc"] = results["jobdesc"]
+                        analysis = analyzeText(j["id_jobtitle"], j["id_jobdesc"])
+                        j["id_contact"] = analysis["email"]
+                        j["id_stack_primary"] = analysis["id_stack_primary"]
+                        j["id_stack_secondary"] = analysis["id_stack_secondary"]
+                        j["id_role"] = analysis["id_role"]
+                        j["id_level"] = analysis["id_level"]
+                        f["jobs"].append(j)
+                
+            if f["gd_link"] != "":
+                gd_firm_ROADMAP["url"] = f["gd_link"]
+                results = fly(gd_firm_ROADMAP)["results"]
+                f["gd_score"] = results["gd_score"]
+            if f["li_link"] != "":
+                li_firm_ROADMAP["url"] = f["li_link"] + "/jobs"
+                results = fly(li_firm_ROADMAP)["results"]
+                f["li_allstaff"] = results["li_allstaff"]
+                f["li_jobsopen"] = results["li_jobsopen"]
+            firms.append(f)
+        except Exception as e:
+            print(e)
     return firms
 
 def logExecution():
@@ -460,7 +464,7 @@ def main():
     logExecution()
 
 args = sys.argv
-print(args)
+
 if len(args) > 1:
     if args[1] == "test":
         firmsAlias = "Test Firms"
