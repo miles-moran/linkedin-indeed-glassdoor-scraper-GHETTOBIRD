@@ -23,14 +23,12 @@ browser = webdriver.Chrome(executable_path=chromedriver_location)
 settings = {
     "li_username": "",
     "li_password": "",
-    "race_dict": {}
+    "race_list": ["Asian,GreaterEastAsian,EastAsian", "Asian,GreaterEastAsian,Japanese", "Asian,IndianSubContinent", "GreaterAfrican,Africans", "GreaterAfrican,Muslim", "GreaterEuropean,British", "GreaterEuropean,EastEuropean", "GreaterEuropean,Jewish", "GreaterEuropean,WestEuropean,French"	, "GreaterEuropean,WestEuropean,Germanic", "GreaterEuropean,WestEuropean,Hispanic", "GreaterEuropean,WestEuropean,Italian", "GreaterEuropean,WestEuropean,Nordic"]
 }
 
 inputAlias = "Diversity Input"
 
-diversity_header = ["company",  "li_link", "li_allstaff", "private", "public", "names", 'foreign', 'non_foreign', "diversity_rat", "HHI", ""]
-
-race_list = []
+diversity_header = ["company",  "li_link", "li_allstaff", "private", "public", "names", "", "Asian,GreaterEastAsian,EastAsian", "Asian,GreaterEastAsian,Japanese", "Asian,IndianSubContinent", "GreaterAfrican,Africans", "GreaterAfrican,Muslim", "GreaterEuropean,British", "GreaterEuropean,EastEuropean", "GreaterEuropean,Jewish", "GreaterEuropean,WestEuropean,French"	, "GreaterEuropean,WestEuropean,Germanic", "GreaterEuropean,WestEuropean,Hispanic", "GreaterEuropean,WestEuropean,Italian", "GreaterEuropean,WestEuropean,Nordic"]
 
 def scroll():
     SCROLL_PAUSE_TIME = 2
@@ -62,19 +60,19 @@ def handleSettings():
     data = getSheetData("Settings")
     settings["li_username"] = data[4]["value"]
     settings["li_password"] = data[5]["value"]
-    races = getSheetData('Diversity Hidden')[0]
-    settings["race_dict"] = races
-    for race in list(races.keys()):
-        diversity_header.append(race)
-        race_list.append(race)
 
+def logExecution():
+    now = datetime.now() 
+    time = now.strftime("%H:%M:%S, %m/%d/%Y")
+    s = client.open("Indeed v2").worksheet(inputAlias)
+    s.update_cell(1, 7, time)
 
 def writeToSheet(sheet, header, data):
     if len(data) > 0:
         client.login()
         s = client.open("Indeed v2").worksheet(sheet)
         book = client.open("Indeed v2")
-        book.values_clear(sheet + "!A1:Z10000")
+        book.values_clear(sheet + "!A1:U10000")
         data.insert(0, header)
         cells = []
         for row_num, row in enumerate(data):
@@ -144,28 +142,17 @@ def scrape():
                 f["li_allstaff"] += 1
         analysis = analyzeRace(f["formattedNames"])
         races = {}
-        HHI = 1
-        for race in race_list:
+        for race in settings["race_list"]:
             if race in list(analysis.keys()):
-                foreign = settings["race_dict"][race] == 'Yes'
                 races[race] = analysis[race]
-                if foreign == True:
-                    count = analysis[race]
-                    f['foreign'] += count
-                    HHI = HHI - ((count / f["public"]) * (count / f["public"]))
-                else:
-                    f['non-foreign'] += analysis[race]
             else:
                 races[race] = 0 
-        HHI = HHI - ((f['non-foreign'] / f["public"]) * (f['non-foreign'] / f["public"]))
-        f["HHI"] = HHI
-        f["percentage"] = f["foreign"] / f["public"]
-        pprint(HHI)
-        row = [f["company"], f["li_link"], f["li_allstaff"], f["private"], f["public"], f["names"], f['foreign'], f['non-foreign'], f["percentage"], f["HHI"], ""]
-        for race in race_list:
+        row = [f["company"], f["li_link"], f["li_allstaff"], f["private"], f["public"], f["names"], ""]
+        for race in settings["race_list"]:
             row.append(races[race])
         firms.append(row)
     writeToSheet("Diversity", diversity_header, firms)
+    logExecution()
 
 scrape()
 
