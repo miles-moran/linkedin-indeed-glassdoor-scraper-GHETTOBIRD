@@ -28,7 +28,7 @@ settings = {
 
 inputAlias = "Diversity Input"
 
-diversity_header = ["company",  "li_link", "li_allstaff", "private", "public", "names", 'foreign', 'non_foreign', "diversity_rating", "HHI", ""]
+diversity_header = ["company",  "li_link", "li_allstaff", "private", "public", "names", 'foreign', 'non_foreign', "diversity_rat", "HHI", ""]
 
 race_list = []
 

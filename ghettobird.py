@@ -208,7 +208,7 @@ def master_method_selenium(flight):
     browser.get(flight["url"])
     time.sleep(3)
     captchaExists = len(browser.find_elements_by_xpath("//*[contains(text(),'do a quick security check')]")) > 0
-    loginExists = len(browser.find_elements_by_xpath("//*[contains(text(),'Sign In')]")) > 0
+    loginExists = len(browser.find_elements_by_xpath("//*[contains(text(),'Sign up for free to get more')]")) > 0
     if captchaExists or loginExists:
         input("--Captcha Detected--") 
     tree = browser.find_element_by_xpath("//html")
