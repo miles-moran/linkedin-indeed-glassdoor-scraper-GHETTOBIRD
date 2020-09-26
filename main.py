@@ -431,6 +431,7 @@ def scrape():
                 results = fly(gd_firm_ROADMAP)["results"]
                 f["gd_score"] = results["gd_score"]
             if f["li_link"] != "":
+                pprint(f["li_link"])
                 li_firm_ROADMAP["url"] = f["li_link"] + "/jobs"
                 results = fly(li_firm_ROADMAP)["results"]
                 f["li_allstaff"] = results["li_allstaff"]

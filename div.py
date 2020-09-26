@@ -30,7 +30,7 @@ inputAlias = "Diversity Input"
 
 diversity_header = ["company",  "li_link", "li_allstaff", "private", "public", "names", "", "Asian,GreaterEastAsian,EastAsian", "Asian,GreaterEastAsian,Japanese", "Asian,IndianSubContinent", "GreaterAfrican,Africans", "GreaterAfrican,Muslim", "GreaterEuropean,British", "GreaterEuropean,EastEuropean", "GreaterEuropean,Jewish", "GreaterEuropean,WestEuropean,French"	, "GreaterEuropean,WestEuropean,Germanic", "GreaterEuropean,WestEuropean,Hispanic", "GreaterEuropean,WestEuropean,Italian", "GreaterEuropean,WestEuropean,Nordic"]
 
-def scroll():
+def scroll(depth):
     SCROLL_PAUSE_TIME = 2
     last_height = browser.execute_script("return document.body.scrollHeight")
 
@@ -44,9 +44,10 @@ def scroll():
         # Calculate new scroll height and compare with last scroll height
         new_height = browser.execute_script(
             "return document.body.scrollHeight")
-        if new_height == last_height:
+        if new_height == last_height or depth == 0:
             break
         last_height = new_height
+        depth = depth - 1
 
 
 
@@ -119,34 +120,49 @@ def scrape():
             "foreign": 0,
             "non-foreign": 0
         }
-        url = f["li_link"] + "/people?keywords=germany"
-        browser.get(url)
-        time.sleep(3)
-        scroll()
-        time.sleep(1)
-        nameEls = browser.find_elements_by_xpath(
-            "//div[@class='artdeco-entity-lockup__title ember-view']")
-        for name in nameEls:
-            if name.text != 'LinkedIn Member':
-                f["public"] += 1
-                split = name.text.split(" ")
-                if len(split) < 2:
-                    continue
-                f["names"] += name.text + ", "
-                first = split[0]
-                last = split[1]
-                f["formattedNames"].append({'first': first, 'last': last})
-                f["li_allstaff"] += 1
-            else:
-                f["private"] += 1
-                f["li_allstaff"] += 1
-        analysis = analyzeRace(f["formattedNames"])
-        races = {}
-        for race in settings["race_list"]:
-            if race in list(analysis.keys()):
-                races[race] = analysis[race]
-            else:
-                races[race] = 0 
+        try:
+            url = f["li_link"] + "/people?keywords=germany"
+            browser.get(url)
+            time.sleep(3)
+            captchaExists = len(browser.find_elements_by_xpath("//*[contains(text(),'do a quick security check')]")) > 0
+            loginExists = len(browser.find_elements_by_xpath("//*[contains(text(),'Sign up for free to get more')]")) > 0
+            if captchaExists or loginExists:
+                input("--Captcha Detected--") 
+                time.sleep(3)
+                browser.get(url)
+                time.sleep(3)
+            try:
+                f["li_allstaff"] = browser.find_element_by_xpath("//span[@class='t-20 t-black']").text.split(" ")[0]
+            except:
+                f["li_allstaff"] = 0
+            container = browser.find_element_by_xpath("//ul[@class='org-people-profiles-module__profile-list']")
+            scroll(15)
+            time.sleep(1)
+            nameEls = container.find_elements_by_xpath(
+                "/div[@class='artdeco-entity-lockup__title ember-view']")
+            for name in nameEls:
+                if name.text != 'LinkedIn Member':
+                    f["public"] += 1
+                    split = name.text.split(" ")
+                    print(split)
+                    if len(split) < 2:
+                        continue
+                    f["names"] += name.text + ", "
+                    first = split[0]
+                    last = split[1]
+                    f["formattedNames"].append({'first': first, 'last': last})
+                else:
+                    f["private"] += 1
+            analysis = analyzeRace(f["formattedNames"])
+            races = {}
+            for race in settings["race_list"]:
+                if race in list(analysis.keys()):
+                    races[race] = analysis[race]
+                else:
+                    races[race] = 0
+        except Exception as e:
+            print(url)
+            print(e)
         row = [f["company"], f["li_link"], f["li_allstaff"], f["private"], f["public"], f["names"], ""]
         for race in settings["race_list"]:
             row.append(races[race])
