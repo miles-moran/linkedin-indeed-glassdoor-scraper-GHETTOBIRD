@@ -103,12 +103,53 @@ def analyzeRace(names):
             races[race] = 1
     return races
 
+def TRANSFORM_clean_li_allstaff(element):
+    time.sleep(2)
+    scroll(15)
+    return element.text.split(" ")[0]
+
+li_roadmap_ROADMAP = {
+    "url": "https://www.linkedin.com/company/adjustcom/people?keywords=germany",
+    "method": {
+        "type": master_method_selenium,
+        "browser": browser,
+        "sleep": 3
+    },
+    "flightpath": {
+        "li_allstaff": {
+            "path": "//span[@class='t-20 t-black']",
+            "transformer": TRANSFORM_clean_li_allstaff
+        },
+        "names": [{
+            "path": "//li[@class='org-people-profiles-module__profile-item']",
+             "name": {
+                "path": ".//div[@class='artdeco-entity-lockup__title ember-view']",
+             },
+        }]
+     }
+}
+
 def scrape():
     handleSettings()
     login(browser)
     inputSpreadsheet = getSheetData(inputAlias)
     firms = []
     for firmInput in inputSpreadsheet:
+        races = {
+            "Asian,GreaterEastAsian,EastAsian": 0,
+            "Asian,GreaterEastAsian,Japanese":0,
+            "Asian,IndianSubContinent": 0,
+            "GreaterAfrican,Africans": 0,
+            "GreaterAfrican,Muslim": 0,
+            "GreaterEuropean,British": 0,
+            "GreaterEuropean,EastEuropean": 0,
+            "GreaterEuropean,Jewish": 0,
+            "GreaterEuropean,WestEuropean,French": 0,
+            "GreaterEuropean,WestEuropean,Germanic": 0,
+            "GreaterEuropean,WestEuropean,Hispanic": 0,
+            "GreaterEuropean,WestEuropean,Italian": 0, 
+            "GreaterEuropean,WestEuropean,Nordic": 0
+        }
         f = {
             "company": firmInput["company"],
             "li_link": firmInput["li_link"],
@@ -120,49 +161,54 @@ def scrape():
             "foreign": 0,
             "non-foreign": 0
         }
-        try:
-            url = f["li_link"] + "/people?keywords=germany"
-            browser.get(url)
-            time.sleep(3)
-            captchaExists = len(browser.find_elements_by_xpath("//*[contains(text(),'do a quick security check')]")) > 0
-            loginExists = len(browser.find_elements_by_xpath("//*[contains(text(),'Sign up for free to get more')]")) > 0
-            if captchaExists or loginExists:
-                input("--Captcha Detected--") 
-                time.sleep(3)
-                browser.get(url)
-                time.sleep(3)
+        link_or_names = f["li_link"]
+        if "http://" in link_or_names or "https://" in link_or_names:
             try:
-                f["li_allstaff"] = browser.find_element_by_xpath("//span[@class='t-20 t-black']").text.split(" ")[0]
-            except:
-                f["li_allstaff"] = 0
-            container = browser.find_element_by_xpath("//ul[@class='org-people-profiles-module__profile-list']")
-            scroll(15)
-            time.sleep(1)
-            nameEls = container.find_elements_by_xpath(
-                "/div[@class='artdeco-entity-lockup__title ember-view']")
-            for name in nameEls:
-                if name.text != 'LinkedIn Member':
-                    f["public"] += 1
-                    split = name.text.split(" ")
-                    print(split)
-                    if len(split) < 2:
-                        continue
-                    f["names"] += name.text + ", "
+                url = link_or_names + "/people?facetGeoRegion=de%3A0"
+                li_roadmap_ROADMAP["url"] = url
+                results = fly(li_roadmap_ROADMAP)["results"]
+                if results["li_allstaff"] == None or results["li_allstaff"] == "":
+                    results = fly(li_roadmap_ROADMAP)["results"]
+                f["li_allstaff"] = results['li_allstaff']
+                for name in results["names"]:
+                    name = name["name"]
+                    if name != "LinkedIn Member":
+                        f["public"] += 1
+                        f["names"] += name + ", "
+                        split = name.split(" ")
+                        first = split[0]
+                        last = split[1]
+                        f["formattedNames"].append({'first': first, 'last': last})
+                    else:
+                        f["private"] += 1
+                pprint(f["formattedNames"])
+                analysis = analyzeRace(f["formattedNames"])
+                pprint(analysis)
+                for race in settings["race_list"]:
+                    if race in list(analysis.keys()):
+                        races[race] = analysis[race]
+            except Exception as e:
+                print(url)
+                print(e)
+        else:
+            try:
+                names = link_or_names.split(",")
+                f["li_allstaff"] = len(names)
+                f["public"] = len(names)
+                f["names"] += link_or_names
+                for name in names:
+                    split = name.split(" ")
                     first = split[0]
                     last = split[1]
                     f["formattedNames"].append({'first': first, 'last': last})
-                else:
-                    f["private"] += 1
-            analysis = analyzeRace(f["formattedNames"])
-            races = {}
-            for race in settings["race_list"]:
-                if race in list(analysis.keys()):
-                    races[race] = analysis[race]
-                else:
-                    races[race] = 0
-        except Exception as e:
-            print(url)
-            print(e)
+                    pprint(f["formattedNames"])
+                    analysis = analyzeRace(f["formattedNames"])
+                    for race in settings["race_list"]:
+                        if race in list(analysis.keys()):
+                            races[race] = analysis[race]
+            except Exception as e:
+                print(link_or_names)
+                print(e)
         row = [f["company"], f["li_link"], f["li_allstaff"], f["private"], f["public"], f["names"], ""]
         for race in settings["race_list"]:
             row.append(races[race])

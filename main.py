@@ -40,6 +40,8 @@ def handleSettings():
     settings["id_level"] = data[3]["value"].lower().split(',')
     settings["li_username"] = data[4]["value"]
     settings["li_password"] = data[5]["value"]
+    # data = getSheetData("Diversity Input")
+    # diversity_force_run = data[0]
 
 def TRANSFORM_firm_jobs(data):
     for j in data:
