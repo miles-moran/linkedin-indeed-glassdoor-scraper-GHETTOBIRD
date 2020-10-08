@@ -23,6 +23,7 @@ browser = webdriver.Chrome(executable_path=chromedriver_location)
 settings = {
     "li_username": "",
     "li_password": "",
+    "div_scroll_depth": 15,
     "race_list": ["Asian,GreaterEastAsian,EastAsian", "Asian,GreaterEastAsian,Japanese", "Asian,IndianSubContinent", "GreaterAfrican,Africans", "GreaterAfrican,Muslim", "GreaterEuropean,British", "GreaterEuropean,EastEuropean", "GreaterEuropean,Jewish", "GreaterEuropean,WestEuropean,French"	, "GreaterEuropean,WestEuropean,Germanic", "GreaterEuropean,WestEuropean,Hispanic", "GreaterEuropean,WestEuropean,Italian", "GreaterEuropean,WestEuropean,Nordic"]
 }
 
@@ -61,6 +62,8 @@ def handleSettings():
     data = getSheetData("Settings")
     settings["li_username"] = data[4]["value"]
     settings["li_password"] = data[5]["value"]
+    settings["div_scroll_depth"] = data[6]["value"]
+    print(data[6]["value"])
 
 def logExecution():
     now = datetime.now() 
@@ -105,7 +108,7 @@ def analyzeRace(names):
 
 def TRANSFORM_clean_li_allstaff(element):
     time.sleep(2)
-    scroll(15)
+    scroll(settings["div_scroll_depth"])
     return element.text.split(" ")[0]
 
 li_roadmap_ROADMAP = {
