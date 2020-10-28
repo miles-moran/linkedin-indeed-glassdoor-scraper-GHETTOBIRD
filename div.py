@@ -174,16 +174,20 @@ def scrape():
                     results = fly(li_roadmap_ROADMAP)["results"]
                 f["li_allstaff"] = results['li_allstaff']
                 for name in results["names"]:
-                    name = name["name"]
-                    if name != "LinkedIn Member":
-                        f["public"] += 1
-                        f["names"] += name + ", "
-                        split = name.split(" ")
-                        first = split[0]
-                        last = split[1]
-                        f["formattedNames"].append({'first': first, 'last': last})
-                    else:
-                        f["private"] += 1
+                    try:
+                        name = name["name"]
+                        if name != "LinkedIn Member":
+                            f["public"] += 1
+                            f["names"] += name + ", "
+                            split = name.split(" ")
+                            first = split[0]
+                            last = split[1]
+                            f["formattedNames"].append({'first': first, 'last': last})
+                        else:
+                            f["private"] += 1
+                    except:
+                        print("~~~~~~~~~~~~~~~~~~~~~~")
+                        continue
                 pprint(f["formattedNames"])
                 analysis = analyzeRace(f["formattedNames"])
                 pprint(analysis)

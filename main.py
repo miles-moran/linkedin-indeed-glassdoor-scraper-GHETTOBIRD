@@ -52,6 +52,7 @@ def TRANSFORM_firm_jobs(data):
     return data
 
 def TRANSFORM_selenium_get_href(data):
+    print(data.get_attribute("href"))
     return data.get_attribute("href")
 
 def TRANSFORM_clean_li_allstaff(data):
@@ -398,6 +399,7 @@ def scrape():
                     f["id_software_jobsopen"] = results["id_software_jobsopen"]
                     rawJobs = results["@id_jobs"]
                     for job in rawJobs:
+                        pprint(job)
                         j = {
                             "company": f["company"],
                             "id_jobtitle": job["title"],
@@ -429,18 +431,29 @@ def scrape():
                         f["jobs"].append(j)
                 
             if f["gd_link"] != "":
-                gd_firm_ROADMAP["url"] = f["gd_link"]
-                results = fly(gd_firm_ROADMAP)["results"]
-                f["gd_score"] = results["gd_score"]
+                try:
+                    gd_firm_ROADMAP["url"] = f["gd_link"]
+                    results = fly(gd_firm_ROADMAP)["results"]
+                    f["gd_score"] = results["gd_score"]
+                except Exception as e:
+                    print(e)
+                    print("GD ERROR")
+                    f["gd_score"] = 0
             if f["li_link"] != "":
-                pprint(f["li_link"])
-                li_firm_ROADMAP["url"] = f["li_link"] + "/jobs"
-                results = fly(li_firm_ROADMAP)["results"]
-                f["li_allstaff"] = results["li_allstaff"]
-                f["li_jobsopen"] = results["li_jobsopen"]
+                try:
+                    li_firm_ROADMAP["url"] = f["li_link"] + "/jobs"
+                    results = fly(li_firm_ROADMAP)["results"]
+                    f["li_allstaff"] = results["li_allstaff"]
+                    f["li_jobsopen"] = results["li_jobsopen"]
+                except Exception as e:
+                    print(e)
+                    print("LI ERROR")
+                    f["li_allstaff"] = 0
+                    f["li_jobsopen"] = 0
             firms.append(f)
         except Exception as e:
             print(e)
+    pprint(firms)
     return firms
 
 def logExecution():
