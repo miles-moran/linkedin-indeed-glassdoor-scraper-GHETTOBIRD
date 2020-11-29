@@ -52,7 +52,6 @@ def TRANSFORM_firm_jobs(data):
     return data
 
 def TRANSFORM_selenium_get_href(data):
-    print(data.get_attribute("href"))
     return data.get_attribute("href")
 
 def TRANSFORM_clean_li_allstaff(data):
@@ -341,6 +340,7 @@ def scrape():
     firms = []
     for firmInput in inputSpreadsheet:
         try:
+            print(firmInput["company"])
             f = {
                 "company": firmInput["company"],
                 "id_link": firmInput["id_link"],
@@ -399,7 +399,6 @@ def scrape():
                     f["id_software_jobsopen"] = results["id_software_jobsopen"]
                     rawJobs = results["@id_jobs"]
                     for job in rawJobs:
-                        pprint(job)
                         j = {
                             "company": f["company"],
                             "id_jobtitle": job["title"],
@@ -453,7 +452,6 @@ def scrape():
             firms.append(f)
         except Exception as e:
             print(e)
-    pprint(firms)
     return firms
 
 def logExecution():

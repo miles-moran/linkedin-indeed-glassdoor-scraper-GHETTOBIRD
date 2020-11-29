@@ -210,11 +210,54 @@ def master_method_selenium(flight):
     captchaExists = len(browser.find_elements_by_xpath("//*[contains(text(),'do a quick security check')]")) > 0
     loginExists = len(browser.find_elements_by_xpath("//*[contains(text(),'Sign up for free to get more')]")) > 0
     welcomeExists = len(browser.find_elements_by_xpath("//*[contains(text(),'Welcome Back')]")) > 0
-    if captchaExists or loginExists or welcomeExists:
-        input("--Captcha Detected--")
+    signinExists = len(browser.find_elements_by_xpath("//*[contains(text(),'Sign in')]")) > 0
+    if captchaExists or loginExists or welcomeExists or signinExists:
+        handleCaptcha(browser)
         time.sleep(3)
         browser.get(flight["url"])
         time.sleep(3)
     tree = browser.find_element_by_xpath("//html")
     results = explore(tree, flight["flightpath"], flight["log"])
     return results
+
+
+def handleCaptcha(browser):
+    print("SOLVING CAPTCHA")
+    login(browser)
+    time.sleep(2)
+    captchaSolverKey = "36e2bbd9057099ae77eae438728033a0"
+    currentURL = browser.current_url
+    form = browser.find_element_by_xpath("//*[@id='captcha-challenge']")
+    publicKey = browser.find_element_by_xpath("//input[@name='captchaSiteKey']").get_attribute("value")
+
+    url = "https://2captcha.com/in.php?key={}&method=userrecaptcha&googlekey={}&pageurl={}".format(captchaSolverKey, publicKey, currentURL)
+    r = requests.get(url, timeout=20).content.decode("utf-8")
+    response = r.split("|")
+    status = response[0]
+    statusID = response[1]
+    time.sleep(20)
+    solved = ''
+    url2 = "https://2captcha.com/res.php?key={}&action=get&id={}".format(captchaSolverKey, statusID)
+    while True:
+        r = requests.get(url2, timeout=20).content.decode("utf-8") 
+        if r == 'CAPCHA_NOT_READY':
+            print(r)
+            time.sleep(5)
+        else:
+            print(r)
+            response = r.split("|")
+            solved= response[1]
+            break
+    script = "document.getElementsByName('captchaUserResponseToken')[0].value='{}';".format(solved)
+    browser.execute_script(script)
+    form.submit()
+
+
+def login(browser):
+    browser.get("https://www.linkedin.com/login")
+    time.sleep(2)
+    username = browser.find_element_by_xpath('//input[@id="username"]')
+    password = browser.find_element_by_xpath('//input[@id="password"]')
+    username.send_keys("throwaway1993@live.com")
+    password.send_keys("thisisabot123")
+    browser.find_element_by_xpath('//button[@type="submit"]').click()
